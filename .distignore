@@ -1,0 +1,12 @@
+# Dev-only files excluded from distribution zip
+.git
+.github
+.gitignore
+.distignore
+dist-hook.sh
+sync_catalog.py
+Makefile
+README.md
+README
+README-developers.md
+CHANGELOG.md
