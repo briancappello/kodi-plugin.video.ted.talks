@@ -1,3 +1,20 @@
+## [5.2.0]
+### Changed
+- Updated for Kodi v21 (Omega) compatibility
+- Fixed series list scraper for redesigned TED.com series page (now Prismic CMS)
+- Fixed RSS feed duration calculation bug (hours were multiplied by 60 instead of 3600)
+- Fixed season index bug in series scraper
+- Replaced hardcoded /tmp/ paths with cross-platform temp directory
+- Made YDStreamExtractor import conditional for better testability
+- Fixed invalid regex escape sequences (Python 3.12+ compatibility)
+- Fixed element truth value deprecation warning in speakers scraper
+- Rewrote entire test suite to match current codebase API
+- Added new test file for series scraper (previously untested)
+- Added __init__.py package files for proper test discovery
+- Updated CI to test against Python 3.9, 3.11, and 3.12
+- Updated requirements.txt (removed non-pip-installable YDStreamExtractor)
+- Requires Kodi v19.x (Matrix), v20.x (Nexus), or v21.x (Omega)
+
 ## [5.1.0]
 ### Changed
 - Reworked [5.0.1], with many fixes to keep up with ted.com changes

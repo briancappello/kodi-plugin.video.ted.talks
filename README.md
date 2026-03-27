@@ -3,17 +3,21 @@ plugin.video.ted.talks
 This is a fork of the project started by rwparris, see
 [here](http://forum.xbmc.org/showthread.php?tid=36866).
 
-Fix for Kodi 19.x Matrix and Kodi 20.x Nexus implemented by [Kevwag-Kodi-Forks](https://githuc.com/Kevwag-Kodi-Forks)
+Fix for Kodi 19.x Matrix and Kodi 20.x Nexus implemented by [Kevwag-Kodi-Forks](https://github.com/Kevwag-Kodi-Forks)
+
+Updated for Kodi 21.x Omega compatibility.
 
 For installation instructions see
 [Installing](https://github.com/moreginger/xbmc-plugin.video.ted.talks/wiki/Installing)
 
-The goal is (_surprise_) to allow watching TED talks in XBMC.
+The goal is to allow watching TED talks in Kodi.
 The currently supported browsing options are:
 * Newest talks
 * Search
 * Speakers
 * Topics
+* TED Series
+* Other Feeds (RSS)
 
 Playback uses an m3u8 playlist file. Kodi will automatically select the best
 bitrate supported by the bandwidth settings of the installation.

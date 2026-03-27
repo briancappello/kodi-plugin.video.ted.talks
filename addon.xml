@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.ted.talks" name="TED Talks" version="5.1.0" provider-name="rwparris2, moreginger, kevwag, kodaksmith, demitrios">
+<addon id="plugin.video.ted.talks" name="TED Talks" version="5.2.0" provider-name="rwparris2, moreginger, kevwag, kodaksmith, demitrios">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
     <import addon="script.module.requests" version="2.22.0"/>
@@ -23,6 +23,14 @@
     <platform>all</platform>
     <license>GPL-2.0-or-later</license>
     <news>
+v5.2.0
+- Updated for Kodi v21 (Omega) compatibility
+- Fixed series scraper for redesigned TED.com series page
+- Fixed RSS feed duration calculation bug
+- Fixed cross-platform temp file paths
+- Updated and fixed test suite
+- Requires Kodi v19.x (Matrix), v20.x (Nexus), or v21.x (Omega)
+
 v5.1.0
 - More or less a rewrite of v5.0.1, many fixes
 - Fixed "Search", plus now searches for talks or playlists

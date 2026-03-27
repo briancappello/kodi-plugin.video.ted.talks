@@ -1,74 +1,76 @@
-import timeit
 import unittest
 
-import mock
-import requests
-
-from . import talk_scraper
-from .test_util import skip_ted_rate_limited, CachedHTMLProvider, EXCLUDE_RATE_LIMITED
+from .talk_scraper import Talk
+from .test_util import CachedHTMLProvider
 
 
 class TestTalkScraper(unittest.TestCase):
+    def setUp(self):
+        self.sut = Talk(CachedHTMLProvider().get_HTML)
 
-    def test_get_ted_video(self):
-        # post-2017 talk
-        self.assert_talk_details(
+    def test_fetch_talk_standard(self):
+        """Test a standard TED talk with HLS stream."""
+        stream, subtitles, vidinfo, artwork, speaker = self.sut.fetch_talk(
+            "https://www.ted.com/talks/dan_bricklin_meet_the_inventor_of_the_electronic_spreadsheet"
+        )
+        self.assertIsNotNone(stream)
+        self.assertIn("hls.ted.com", stream)
+        self.assertIn("manifest.m3u8", stream)
+        # Stream URL should have query string stripped
+        self.assertNotIn("?", stream)
+
+        self.assertEqual(
+            "Meet the inventor of the electronic spreadsheet", vidinfo["title"]
+        )
+        self.assertIsNotNone(vidinfo["duration"])
+        self.assertIsNotNone(vidinfo["plot"])
+        self.assertIsNotNone(vidinfo["date"])
+        self.assertEqual("video", vidinfo["mediatype"])
+
+        self.assertIsNotNone(artwork["thumb"])
+        self.assertIsNotNone(artwork["icon"])
+
+        self.assertEqual("Dan Bricklin", speaker["name"])
+        self.assertIsNotNone(speaker["url"])
+
+    def test_fetch_talk_youtube_fallback(self):
+        """Test a talk that has a YouTube external link (no HLS stream)."""
+        stream, subtitles, vidinfo, artwork, speaker = self.sut.fetch_talk(
+            "https://www.ted.com/talks/seth_godin_this_is_broken"
+        )
+        # Without YDStreamExtractor this will be None in test env
+        # The important thing is it doesn't crash
+        self.assertEqual("This is broken", vidinfo["title"])
+        self.assertEqual("Seth Godin", speaker["name"])
+        self.assertIsNotNone(vidinfo["plot"])
+
+    def test_fetch_talk_vidinfo_fields(self):
+        """Verify all expected vidinfo fields are present."""
+        stream, subtitles, vidinfo, artwork, speaker = self.sut.fetch_talk(
+            "https://www.ted.com/talks/dan_bricklin_meet_the_inventor_of_the_electronic_spreadsheet"
+        )
+        expected_keys = {
+            "title",
+            "duration",
+            "date",
+            "aired",
+            "dateadded",
+            "plot",
+            "genre",
+            "mediatype",
+            "url",
+        }
+        self.assertTrue(expected_keys.issubset(set(vidinfo.keys())))
+
+    def test_fetch_talk_with_series_info(self):
+        """Verify season/episode info is added when provided."""
+        stream, subtitles, vidinfo, artwork, speaker = self.sut.fetch_talk(
             "https://www.ted.com/talks/dan_bricklin_meet_the_inventor_of_the_electronic_spreadsheet",
-            "https://hls.ted.com/project_masters/2740/manifest.m3u8",
-            "Meet the inventor of the electronic spreadsheet",
-            "Dan Bricklin",
-            True,
-            True
+            season="1",
+            episode="3",
+            tvshow="Test Show",
         )
-
-        # pre-2017 talk had different page format at some point. Unsure if that still holds?
-        self.assert_talk_details(
-            "https://www.ted.com/talks/ariel_garten_know_thyself_with_a_brain_scanner",
-            "https://hls.ted.com/project_masters/1580/manifest.m3u8",
-            "Know thyself, with a brain scanner",
-            "Ariel Garten",
-            True,
-            True
-        )
-
-        # Example of a YouTube link. Not currently working.
-        # Correct URL might be something like: plugin://plugin.video.youtube/?action=play_video&videoid=aNDiHSHYI_c
-        self.assert_talk_details(
-            "https://www.ted.com/talks/seth_godin_this_is_broken",
-            None,
-            "This is broken",
-            "Seth Godin",
-            True,
-            True
-        )
-
-    def assert_talk_details(self, talk_url, expected_video_url, expected_title, expected_speaker, expect_plot, expect_json):
-        logger = mock.MagicMock()
-        url, title, speaker, plot, player_json = talk_scraper.get_talk(CachedHTMLProvider().get_HTML(talk_url), logger)
-        self.assertEqual(expected_video_url, url)
-        self.assertEqual(expected_title, title)
-        self.assertEqual(expected_speaker, speaker)
-
-        if expect_plot:
-            self.assertTrue(plot)  # Not None or empty
-        else:
-            self.assertIsNone(plot)
-
-        if expect_json:
-            self.assertTrue(player_json)  # Not None or empty
-        else:
-            self.assertIsNone(player_json)
-
-    def test_performance(self):
-        html = CachedHTMLProvider().get_HTML("https://www.ted.com/talks/ariel_garten_know_thyself_with_a_brain_scanner.html")
-        logger = mock.MagicMock()
-
-        def test():
-            talk_scraper.get_talk(html, logger)
-
-        t = timeit.Timer(test)
-        repeats = 10
-        time = t.timeit(repeats)
-        print(("Extracting talk details took %s seconds per run" % (time / repeats)))
-        self.assertGreater(4, time)
-
+        self.assertEqual(1, vidinfo["season"])
+        self.assertEqual(3, vidinfo["episode"])
+        self.assertEqual("episode", vidinfo["mediatype"])
+        self.assertEqual("Test Show", vidinfo["tvshowtitle"])

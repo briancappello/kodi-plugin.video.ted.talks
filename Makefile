@@ -1,7 +1,7 @@
 ## TEDTalks video addon for Kodi
 # simple Makefile to package the plugin based on addon.xml
 
-DISTRIBUTION = matrix
+DISTRIBUTION = omega
 
 ADDON_XML = ./addon.xml
 

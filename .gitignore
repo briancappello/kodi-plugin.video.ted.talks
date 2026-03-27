@@ -1,4 +1,4 @@
 *.pyc
-/dist.zip
+__pycache__/
+*.zip
 /plugin.video.ted.talks/
-#/plugin.video.ted.talks-*.zip
