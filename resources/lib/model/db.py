@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS talks (
     published_at  TEXT,
     recorded_at   TEXT,
     view_count    INTEGER,
+    favorite      INTEGER DEFAULT 0,
+    watched       INTEGER DEFAULT 0,
+    resume_at     REAL,
+    total_time    REAL,
     created_at    TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     updated_at    TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     enriched_at   TEXT
@@ -138,7 +142,8 @@ class TedDatabase:
             "SELECT name FROM sqlite_master WHERE type='table' AND name='talks'"
         ).fetchone()
         if row:
-            return  # Schema already initialized
+            self._migrate_schema()
+            return
         try:
             self._conn.executescript(_SCHEMA_SQL)
             self._conn.executescript(_FTS_TRIGGERS_SQL)
@@ -149,6 +154,28 @@ class TedDatabase:
             self._conn.commit()
         except sqlite3.OperationalError:
             pass  # Read-only DB, schema must already exist
+
+    def _migrate_schema(self):
+        """Apply schema migrations for existing databases."""
+        try:
+            cols = [
+                r[1] for r in self._conn.execute("PRAGMA table_info(talks)").fetchall()
+            ]
+            if "favorite" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE talks ADD COLUMN favorite INTEGER DEFAULT 0"
+                )
+            if "watched" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE talks ADD COLUMN watched INTEGER DEFAULT 0"
+                )
+            if "resume_at" not in cols:
+                self._conn.execute("ALTER TABLE talks ADD COLUMN resume_at REAL")
+            if "total_time" not in cols:
+                self._conn.execute("ALTER TABLE talks ADD COLUMN total_time REAL")
+            self._conn.commit()
+        except sqlite3.OperationalError:
+            pass  # Read-only DB
 
     def close(self):
         if self._conn is not None:
@@ -477,8 +504,14 @@ class TedDatabase:
                ORDER BY t.name""",
         ).fetchall()
 
-    def get_talks_by_topic(self, topic_name, limit=50, offset=0):
-        """Get talks for a specific topic, newest first."""
+    def get_talks_by_topics(self, topic_names, limit=50, offset=0):
+        """
+        Get talks that match ALL of the given topic names (intersection).
+        Works with one or more topic names.
+        """
+        if not topic_names:
+            return []
+        placeholders = ",".join("?" for _ in topic_names)
         return self.conn.execute(
             """SELECT t.*, GROUP_CONCAT(DISTINCT s.name) as speaker_names
                FROM talks t
@@ -486,11 +519,60 @@ class TedDatabase:
                JOIN topics top ON tt.topic_id = top.id
                LEFT JOIN talk_speakers ts ON t.object_id = ts.talk_id
                LEFT JOIN speakers s ON ts.speaker_id = s.id
-               WHERE top.name = ?
+               WHERE top.name IN (%s)
                GROUP BY t.object_id
+               HAVING COUNT(DISTINCT top.name) = ?
                ORDER BY t.api_rank ASC, t.published_at DESC
-               LIMIT ? OFFSET ?""",
-            (topic_name, limit, offset),
+               LIMIT ? OFFSET ?"""
+            % placeholders,
+            (*topic_names, len(topic_names), limit, offset),
+        ).fetchall()
+
+    def count_talks_by_topics(self, topic_names):
+        """Count talks matching ALL given topic names."""
+        if not topic_names:
+            return 0
+        placeholders = ",".join("?" for _ in topic_names)
+        row = self.conn.execute(
+            """SELECT COUNT(*) as cnt FROM (
+                   SELECT tt.talk_id
+                   FROM talk_topics tt
+                   JOIN topics top ON tt.topic_id = top.id
+                   WHERE top.name IN (%s)
+                   GROUP BY tt.talk_id
+                   HAVING COUNT(DISTINCT top.name) = ?
+               )"""
+            % placeholders,
+            (*topic_names, len(topic_names)),
+        ).fetchone()
+        return row["cnt"] if row else 0
+
+    def get_related_topics(self, topic_names):
+        """
+        Given a list of selected topic names, return other topics that
+        co-occur with ALL of them, along with talk counts.
+        """
+        if not topic_names:
+            return self.get_topics()
+        placeholders = ",".join("?" for _ in topic_names)
+        return self.conn.execute(
+            """SELECT top2.id, top2.name, top2.slug, COUNT(DISTINCT tt2.talk_id) as talk_count
+               FROM talk_topics tt2
+               JOIN topics top2 ON tt2.topic_id = top2.id
+               WHERE tt2.talk_id IN (
+                   SELECT tt.talk_id
+                   FROM talk_topics tt
+                   JOIN topics top ON tt.topic_id = top.id
+                   WHERE top.name IN (%s)
+                   GROUP BY tt.talk_id
+                   HAVING COUNT(DISTINCT top.name) = ?
+               )
+               AND top2.name NOT IN (%s)
+               GROUP BY top2.id
+               HAVING talk_count > 0
+               ORDER BY talk_count DESC"""
+            % (placeholders, placeholders),
+            (*topic_names, len(topic_names), *topic_names),
         ).fetchall()
 
     def get_speakers(self, limit=200, offset=0):
@@ -521,3 +603,64 @@ class TedDatabase:
                LIMIT ? OFFSET ?""",
             (speaker_name, limit, offset),
         ).fetchall()
+
+    # ------------------------------------------------------------------
+    # Favorites
+    # ------------------------------------------------------------------
+
+    def set_favorite(self, slug, favorite=True):
+        """Mark a talk as favorite (or unfavorite)."""
+        self.conn.execute(
+            "UPDATE talks SET favorite = ? WHERE slug = ?",
+            (1 if favorite else 0, slug),
+        )
+        self.conn.commit()
+
+    def get_favorites(self, limit=50, offset=0):
+        """Get favorited talks."""
+        return self.conn.execute(
+            """SELECT t.*, GROUP_CONCAT(DISTINCT s.name) as speaker_names
+               FROM talks t
+               LEFT JOIN talk_speakers ts ON t.object_id = ts.talk_id
+               LEFT JOIN speakers s ON ts.speaker_id = s.id
+               WHERE t.favorite = 1
+               GROUP BY t.object_id
+               ORDER BY t.updated_at DESC
+               LIMIT ? OFFSET ?""",
+            (limit, offset),
+        ).fetchall()
+
+    def is_favorite(self, slug):
+        """Check if a talk is favorited."""
+        row = self.conn.execute(
+            "SELECT favorite FROM talks WHERE slug = ?", (slug,)
+        ).fetchone()
+        return bool(row and row["favorite"])
+
+    # ------------------------------------------------------------------
+    # Playback tracking
+    # ------------------------------------------------------------------
+
+    def update_playback(self, slug, resume_at, total_time):
+        """Update resume position for a talk."""
+        self.conn.execute(
+            "UPDATE talks SET resume_at = ?, total_time = ? WHERE slug = ?",
+            (resume_at, total_time, slug),
+        )
+        self.conn.commit()
+
+    def mark_watched(self, slug):
+        """Mark a talk as watched and clear the resume point."""
+        self.conn.execute(
+            "UPDATE talks SET watched = 1, resume_at = NULL WHERE slug = ?",
+            (slug,),
+        )
+        self.conn.commit()
+
+    def mark_unwatched(self, slug):
+        """Mark a talk as unwatched."""
+        self.conn.execute(
+            "UPDATE talks SET watched = 0, resume_at = NULL WHERE slug = ?",
+            (slug,),
+        )
+        self.conn.commit()

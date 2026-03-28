@@ -26,7 +26,7 @@ __handle__ = int(sys.argv[1])
 
 DB_FILENAME = "ted_catalog.db"
 PAGE_SIZE = 24
-VIDEO_SORT_METHODS = ["dateadded", "title", "views", "none"]
+VIDEO_SORT_METHODS = ["dateadded", "title", "none"]
 
 
 def _log(message, level="info"):
@@ -132,8 +132,10 @@ class UI:
             li.addStreamInfo("video", {"duration": int(talk_row["duration"])})
         if speakers:
             info["cast"] = [s.strip() for s in speakers.split(",")]
-        if talk_row["view_count"]:
-            info["playcount"] = int(talk_row["view_count"])
+
+        # Watched state — playcount controls the watched overlay in Kodi
+        if talk_row["watched"]:
+            info["playcount"] = 1
 
         li.setInfo(type="video", infoLabels=info)
 
@@ -143,6 +145,13 @@ class UI:
 
         if not is_folder:
             li.setProperty("IsPlayable", "true")
+
+        # Resume point
+        resume_at = talk_row["resume_at"]
+        total_time = talk_row["total_time"]
+        if resume_at and total_time and not talk_row["watched"]:
+            li.setProperty("ResumeTime", str(resume_at))
+            li.setProperty("TotalTime", str(total_time))
 
         return li
 
@@ -286,9 +295,10 @@ def show_categories(ui):
         (30004, "search", {}),  # Search
         (30002, "speakers", {}),  # Speakers
         (30007, "topics", {}),  # Topics
+        (None, "favorites", {}),  # Favorites (no localized string yet)
     ]
     for string_id, mode, extra in items:
-        title = ui.localized(string_id)
+        title = ui.localized(string_id) if string_id else mode.title()
         li = xbmcgui.ListItem(title, offscreen=True)
         li.setArt({"icon": settings.__plugin_icon__})
         url = UI.create_action_url(mode, **extra)
@@ -358,14 +368,68 @@ def action_search(ui, db, args):
 
 
 def action_topics(ui, db, args):
-    """List topics or talks within a topic."""
-    topic = args.get("topic", "")
+    """
+    Browse topics with drill-down filtering.
 
-    if not topic:
-        # Show topic list
+    - No topics selected: show all topics with talk counts
+    - Topics selected (pipe-delimited): show "View N talks" + related topics to narrow further
+    - view=1: show the actual talks matching all selected topics
+    """
+    selected_str = args.get("topics", "")
+    selected = [t for t in selected_str.split("|") if t] if selected_str else []
+    view_talks = args.get("view", "") == "1"
+
+    if view_talks and selected:
+        # Show talks matching all selected topics
+        page = int(args.get("page", "0"))
+        talks = db.get_talks_by_topics(
+            selected, limit=PAGE_SIZE, offset=page * PAGE_SIZE
+        )
+
+        for talk in talks:
+            slug = talk["slug"]
+            url = UI.create_action_url("play", url=slug)
+            li = ui.talk_listitem(talk)
+            UI.add_directory_item(url, li, is_folder=False)
+
+        if len(talks) == PAGE_SIZE:
+            UI.next_page_item(
+                "topics", topics=selected_str, view="1", page=str(page + 1)
+            )
+
+        xbmcplugin.setPluginCategory(__handle__, " + ".join(selected))
+        UI.end_directory("videos", VIDEO_SORT_METHODS, update_listing=(page > 0))
+        return
+
+    # Show topic list (either all topics or related topics for drill-down)
+    if selected:
+        # Drill-down: show related topics or go straight to talks
+        talk_count = db.count_talks_by_topics(selected)
+        topics = db.get_related_topics(selected)
+
+        # If only a few talks match, skip the drill-down and show talks directly
+        if talk_count <= PAGE_SIZE:
+            talks = db.get_talks_by_topics(selected, limit=PAGE_SIZE)
+            for talk in talks:
+                slug = talk["slug"]
+                url = UI.create_action_url("play", url=slug)
+                li = ui.talk_listitem(talk)
+                UI.add_directory_item(url, li, is_folder=False)
+            xbmcplugin.setPluginCategory(__handle__, " + ".join(selected))
+            UI.end_directory("videos", VIDEO_SORT_METHODS)
+            return
+
+        # "View N talks" item at the top
+        topic_label = " + ".join(selected)
+        view_label = "View %d %s talks" % (talk_count, topic_label)
+        li = xbmcgui.ListItem(view_label, offscreen=True)
+        li.setProperty("SpecialSort", "top")
+        url = UI.create_action_url("topics", topics=selected_str, view="1")
+        UI.add_directory_item(url, li, is_folder=True)
+    else:
+        # Top-level: show all topics
         topics = db.get_topics()
 
-        # If DB has no topics yet, try fetching tags from the API
         if not topics:
             try:
                 tags = ted_api.get_all_tags(max_values=500)
@@ -378,63 +442,24 @@ def action_topics(ui, db, args):
             except Exception as e:
                 _log("Failed to fetch tags: %s" % e, level="error")
 
-        # If still no topics with talk counts, show all topics from the table
         if not topics:
-            rows = db.conn.execute(
+            topics = db.conn.execute(
                 "SELECT id, name, slug, 0 as talk_count FROM topics ORDER BY name"
             ).fetchall()
-            topics = rows
 
-        for t in topics:
-            label = (
-                "%s (%d)" % (t["name"], t["talk_count"])
-                if t["talk_count"]
-                else t["name"]
-            )
-            li = xbmcgui.ListItem(label, offscreen=True)
-            url = UI.create_action_url("topics", topic=t["name"])
-            UI.add_directory_item(url, li, is_folder=True)
+    for t in topics:
+        label = (
+            "%s (%d)" % (t["name"], t["talk_count"]) if t["talk_count"] else t["name"]
+        )
+        li = xbmcgui.ListItem(label, offscreen=True)
+        # Build new selected topics string with this topic added
+        new_selected = "|".join(selected + [t["name"]])
+        url = UI.create_action_url("topics", topics=new_selected)
+        UI.add_directory_item(url, li, is_folder=True)
 
-        UI.end_directory("files", ["title"])
-        return
-
-    # Show talks for a topic
-    page = int(args.get("page", "0"))
-    talks = db.get_talks_by_topic(topic, limit=PAGE_SIZE, offset=page * PAGE_SIZE)
-
-    # If no talks found, try API with tag filter
-    if not talks:
-        try:
-            result = ted_api.search(
-                facet_filters=["tags:%s" % topic],
-                page=page,
-                hits_per_page=PAGE_SIZE,
-            )
-            if result["hits"]:
-                db.upsert_talks(result["hits"])
-                for talk in result["hits"]:
-                    if talk.get("speakers_str"):
-                        db.set_talk_speakers_from_api(
-                            talk["object_id"], talk["speakers_str"]
-                        )
-                db.conn.commit()
-                talks = db.get_talks_by_topic(
-                    topic, limit=PAGE_SIZE, offset=page * PAGE_SIZE
-                )
-        except Exception as e:
-            _log("Topic API fallback failed: %s" % e, level="error")
-
-    for talk in talks:
-        slug = talk["slug"]
-        url = UI.create_action_url("play", url=slug)
-        li = ui.talk_listitem(talk)
-        UI.add_directory_item(url, li, is_folder=False)
-
-    if len(talks) == PAGE_SIZE:
-        UI.next_page_item("topics", topic=topic, page=str(page + 1))
-
-    xbmcplugin.setPluginCategory(__handle__, topic)
-    UI.end_directory("videos", VIDEO_SORT_METHODS, update_listing=(page > 0))
+    if selected:
+        xbmcplugin.setPluginCategory(__handle__, " + ".join(selected))
+    UI.end_directory("files", ["title"])
 
 
 def action_speakers(ui, db, args):
@@ -476,6 +501,28 @@ def action_speakers(ui, db, args):
         UI.next_page_item("speakers", speaker=speaker, page=str(page + 1))
 
     xbmcplugin.setPluginCategory(__handle__, speaker)
+    UI.end_directory("videos", VIDEO_SORT_METHODS, update_listing=(page > 0))
+
+
+def action_favorites(ui, db, args):
+    """List favorited talks."""
+    page = int(args.get("page", "0"))
+    talks = db.get_favorites(limit=PAGE_SIZE, offset=page * PAGE_SIZE)
+
+    if not talks:
+        xbmcgui.Dialog().notification(
+            "TED Talks", "No favorites yet", xbmcgui.NOTIFICATION_INFO, 3000
+        )
+
+    for talk in talks:
+        slug = talk["slug"]
+        url = UI.create_action_url("play", url=slug)
+        li = ui.talk_listitem(talk)
+        UI.add_directory_item(url, li, is_folder=False)
+
+    if len(talks) == PAGE_SIZE:
+        UI.next_page_item("favorites", page=str(page + 1))
+
     UI.end_directory("videos", VIDEO_SORT_METHODS, update_listing=(page > 0))
 
 
@@ -561,6 +608,9 @@ def action_play(ui, db, args):
     if subtitles_path:
         li.setSubtitles([subtitles_path])
 
+    # Set window property so the service player monitor knows which talk is playing
+    xbmcgui.Window(10000).setProperty("ted_talks_playing_slug", slug)
+
     xbmcplugin.setResolvedUrl(__handle__, True, li)
 
     # Enrich the DB as a side effect (non-blocking for the user)
@@ -599,6 +649,8 @@ class Main:
                 action_topics(ui, db, self.args)
             elif mode == "speakers":
                 action_speakers(ui, db, self.args)
+            elif mode == "favorites":
+                action_favorites(ui, db, self.args)
             elif mode == "play":
                 action_play(ui, db, self.args)
             else:

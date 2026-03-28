@@ -14,6 +14,7 @@ import logging
 import concurrent.futures
 
 import xbmc
+import xbmcgui
 import xbmcvfs
 import xbmcaddon
 
@@ -27,6 +28,116 @@ DB_FILENAME = "ted_catalog.db"
 SYNC_INTERVAL_HOURS = 12
 INCREMENTAL_PAGES = 3  # Fetch first N pages for incremental sync
 ENRICHMENT_WORKERS = 5  # Thread pool size for enrichment
+
+
+class TedPlayer(xbmc.Player):
+    """
+    Monitors playback to show a post-playback review dialog
+    when a TED talk finishes.
+    """
+
+    def __init__(self, db_path):
+        super().__init__()
+        self.db_path = db_path
+        self._current_slug = None
+
+    def onAVStarted(self):
+        """Called when playback actually starts (video is rendering)."""
+        try:
+            slug = xbmcgui.Window(10000).getProperty("ted_talks_playing_slug")
+            if slug:
+                self._current_slug = slug
+                xbmc.log("TED Talks: Now playing %s" % slug, xbmc.LOGINFO)
+        except Exception:
+            pass
+
+    def onPlayBackEnded(self):
+        """Called when playback reaches the end naturally."""
+        self._on_playback_done(completed=True)
+
+    def onPlayBackStopped(self):
+        """Called when user stops playback."""
+        self._on_playback_done(completed=False)
+
+    def _on_playback_done(self, completed):
+        """Handle playback end — save progress and show review dialog."""
+        slug = self._current_slug
+        if not slug:
+            return
+
+        try:
+            db = TedDatabase(self.db_path)
+
+            if completed:
+                db.mark_watched(slug)
+            else:
+                # Save resume point
+                try:
+                    resume_at = self.getTime()
+                    total_time = self.getTotalTime()
+                    # Consider it watched if > 90% through
+                    if total_time > 0 and resume_at / total_time > 0.9:
+                        db.mark_watched(slug)
+                    else:
+                        db.update_playback(slug, resume_at, total_time)
+                except Exception:
+                    pass  # Player may not have time info anymore
+
+            db.close()
+        except Exception as e:
+            xbmc.log("TED Talks: Playback tracking error: %s" % e, xbmc.LOGWARNING)
+
+        self._show_review_dialog()
+
+    def _show_review_dialog(self):
+        """Show the post-playback favorite dialog."""
+        slug = self._current_slug
+        self._current_slug = None
+
+        # Clear the window property
+        try:
+            xbmcgui.Window(10000).clearProperty("ted_talks_playing_slug")
+        except Exception:
+            pass
+
+        if not slug:
+            return
+
+        try:
+            db = TedDatabase(self.db_path)
+            talk = db.get_talk_by_slug(slug)
+            if not talk:
+                db.close()
+                return
+
+            title = talk["title"] or "this talk"
+            is_fav = db.is_favorite(slug)
+
+            if is_fav:
+                # Already a favorite, offer to unfavorite
+                result = xbmcgui.Dialog().yesno(
+                    "TED Talks",
+                    "%s is in your favorites." % title,
+                    yeslabel="Remove Favorite",
+                    nolabel="OK",
+                )
+                if result:
+                    db.set_favorite(slug, False)
+                    xbmc.log("TED Talks: Unfavorited %s" % slug, xbmc.LOGINFO)
+            else:
+                result = xbmcgui.Dialog().yesno(
+                    "TED Talks",
+                    'Add "%s" to favorites?' % title,
+                    yeslabel="Favorite",
+                    nolabel="No Thanks",
+                )
+                if result:
+                    db.set_favorite(slug, True)
+                    xbmc.log("TED Talks: Favorited %s" % slug, xbmc.LOGINFO)
+
+            db.close()
+        except Exception as e:
+            xbmc.log("TED Talks: Review dialog error: %s" % e, xbmc.LOGWARNING)
 
 
 def _get_db_path():
@@ -268,6 +379,9 @@ def run():
         return
 
     db = TedDatabase(db_path)
+
+    # Start playback monitor for post-playback review dialog
+    player = TedPlayer(db_path)
 
     try:
         # Cold start: full sync if never completed a full sync
