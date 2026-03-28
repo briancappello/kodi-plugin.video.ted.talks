@@ -48,6 +48,29 @@ CREATE TABLE IF NOT EXISTS topics (
     slug TEXT
 );
 
+CREATE TABLE IF NOT EXISTS series (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug        TEXT UNIQUE NOT NULL,
+    name        TEXT NOT NULL,
+    description TEXT,
+    thumb_url   TEXT,
+    type        TEXT DEFAULT 'series'
+);
+
+CREATE TABLE IF NOT EXISTS talk_series (
+    talk_slug   TEXT    NOT NULL,
+    series_id   INTEGER NOT NULL REFERENCES series(id) ON DELETE CASCADE,
+    season      INTEGER,
+    episode     INTEGER,
+    PRIMARY KEY (talk_slug, series_id)
+);
+
+CREATE TABLE IF NOT EXISTS series_topics (
+    series_id INTEGER NOT NULL REFERENCES series(id) ON DELETE CASCADE,
+    topic_id  INTEGER NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+    PRIMARY KEY (series_id, topic_id)
+);
+
 CREATE TABLE IF NOT EXISTS talk_speakers (
     talk_id    TEXT    NOT NULL REFERENCES talks(object_id) ON DELETE CASCADE,
     speaker_id INTEGER NOT NULL REFERENCES speakers(id) ON DELETE CASCADE,
@@ -173,6 +196,42 @@ class TedDatabase:
                 self._conn.execute("ALTER TABLE talks ADD COLUMN resume_at REAL")
             if "total_time" not in cols:
                 self._conn.execute("ALTER TABLE talks ADD COLUMN total_time REAL")
+            # Create series tables if missing
+            tables = [
+                r[0]
+                for r in self._conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            ]
+            if "series" not in tables:
+                self._conn.execute("""CREATE TABLE IF NOT EXISTS series (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    slug TEXT UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    thumb_url TEXT,
+                    type TEXT DEFAULT 'series')""")
+            else:
+                series_cols = [
+                    r[1]
+                    for r in self._conn.execute("PRAGMA table_info(series)").fetchall()
+                ]
+                if "type" not in series_cols:
+                    self._conn.execute(
+                        "ALTER TABLE series ADD COLUMN type TEXT DEFAULT 'series'"
+                    )
+            if "talk_series" not in tables:
+                self._conn.execute("""CREATE TABLE IF NOT EXISTS talk_series (
+                    talk_slug TEXT NOT NULL,
+                    series_id INTEGER NOT NULL REFERENCES series(id) ON DELETE CASCADE,
+                    season INTEGER,
+                    episode INTEGER,
+                    PRIMARY KEY (talk_slug, series_id))""")
+            if "series_topics" not in tables:
+                self._conn.execute("""CREATE TABLE IF NOT EXISTS series_topics (
+                    series_id INTEGER NOT NULL REFERENCES series(id) ON DELETE CASCADE,
+                    topic_id INTEGER NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+                    PRIMARY KEY (series_id, topic_id))""")
             self._conn.commit()
         except sqlite3.OperationalError:
             pass  # Read-only DB
@@ -664,3 +723,161 @@ class TedDatabase:
             (slug,),
         )
         self.conn.commit()
+
+    # ------------------------------------------------------------------
+    # Series
+    # ------------------------------------------------------------------
+
+    def upsert_series(
+        self, slug, name, description=None, thumb_url=None, series_type="series"
+    ):
+        """Insert or update a series/playlist."""
+        self.conn.execute(
+            """INSERT INTO series(slug, name, description, thumb_url, type)
+               VALUES (:slug, :name, :description, :thumb_url, :type)
+               ON CONFLICT(slug) DO UPDATE SET
+                   name = :name,
+                   description = COALESCE(:description, description),
+                   thumb_url = COALESCE(:thumb_url, thumb_url),
+                   type = :type""",
+            {
+                "slug": slug,
+                "name": name,
+                "description": description,
+                "thumb_url": thumb_url,
+                "type": series_type,
+            },
+        )
+        self.conn.commit()
+
+    def link_talk_to_series(self, talk_slug, series_slug, season=None, episode=None):
+        """Link a talk to a series with optional season/episode."""
+        series_row = self.conn.execute(
+            "SELECT id FROM series WHERE slug = ?", (series_slug,)
+        ).fetchone()
+        if not series_row:
+            return
+        self.conn.execute(
+            """INSERT OR REPLACE INTO talk_series(talk_slug, series_id, season, episode)
+               VALUES (?, ?, ?, ?)""",
+            (talk_slug, series_row["id"], season, episode),
+        )
+
+    def set_series_topics(self, series_slug, topic_names):
+        """Link a series/playlist to topics by name."""
+        series_row = self.conn.execute(
+            "SELECT id FROM series WHERE slug = ?", (series_slug,)
+        ).fetchone()
+        if not series_row:
+            return
+        series_id = series_row["id"]
+        self.conn.execute("DELETE FROM series_topics WHERE series_id = ?", (series_id,))
+        for name in topic_names:
+            name = name.strip()
+            if not name:
+                continue
+            topic_row = self.conn.execute(
+                "SELECT id FROM topics WHERE name = ? COLLATE NOCASE", (name,)
+            ).fetchone()
+            if not topic_row:
+                self.conn.execute(
+                    "INSERT OR IGNORE INTO topics(name) VALUES (?)", (name,)
+                )
+                topic_row = self.conn.execute(
+                    "SELECT id FROM topics WHERE name = ? COLLATE NOCASE", (name,)
+                ).fetchone()
+            if topic_row:
+                self.conn.execute(
+                    "INSERT OR IGNORE INTO series_topics(series_id, topic_id) VALUES (?, ?)",
+                    (series_id, topic_row["id"]),
+                )
+
+    def get_all_series(self, series_type=None):
+        """Get all series/playlists with talk counts, optionally filtered by type."""
+        if series_type:
+            return self.conn.execute(
+                """SELECT s.*, COUNT(ts.talk_slug) as talk_count
+                   FROM series s
+                   LEFT JOIN talk_series ts ON s.id = ts.series_id
+                   WHERE s.type = ?
+                   GROUP BY s.id
+                   ORDER BY s.name""",
+                (series_type,),
+            ).fetchall()
+        return self.conn.execute(
+            """SELECT s.*, COUNT(ts.talk_slug) as talk_count
+               FROM series s
+               LEFT JOIN talk_series ts ON s.id = ts.series_id
+               GROUP BY s.id
+               ORDER BY s.name""",
+        ).fetchall()
+
+    def get_playlists_by_topic(self, topic_name):
+        """Get playlists linked to a specific topic."""
+        return self.conn.execute(
+            """SELECT s.*, COUNT(ts.talk_slug) as talk_count
+               FROM series s
+               JOIN series_topics st ON s.id = st.series_id
+               JOIN topics t ON st.topic_id = t.id
+               LEFT JOIN talk_series ts ON s.id = ts.series_id
+               WHERE t.name = ? COLLATE NOCASE AND s.type = 'playlist'
+               GROUP BY s.id
+               ORDER BY s.name""",
+            (topic_name,),
+        ).fetchall()
+
+    def get_playlist_topics(self):
+        """Get topics that have playlists, with counts."""
+        return self.conn.execute(
+            """SELECT t.name, COUNT(DISTINCT st.series_id) as playlist_count
+               FROM topics t
+               JOIN series_topics st ON t.id = st.topic_id
+               JOIN series s ON st.series_id = s.id
+               WHERE s.type = 'playlist'
+               GROUP BY t.id
+               HAVING playlist_count > 0
+               ORDER BY t.name""",
+        ).fetchall()
+
+    def get_series_seasons(self, series_slug):
+        """Get distinct seasons for a series."""
+        return self.conn.execute(
+            """SELECT DISTINCT ts.season
+               FROM talk_series ts
+               JOIN series s ON ts.series_id = s.id
+               WHERE s.slug = ? AND ts.season IS NOT NULL
+               ORDER BY ts.season""",
+            (series_slug,),
+        ).fetchall()
+
+    def get_series_talks(self, series_slug, season=None, limit=50, offset=0):
+        """Get talks in a series, optionally filtered by season."""
+        if season is not None:
+            return self.conn.execute(
+                """SELECT t.*, GROUP_CONCAT(DISTINCT sp.name) as speaker_names,
+                          ts.season, ts.episode
+                   FROM talks t
+                   JOIN talk_series ts ON t.slug = ts.talk_slug
+                   JOIN series s ON ts.series_id = s.id
+                   LEFT JOIN talk_speakers tsp ON t.object_id = tsp.talk_id
+                   LEFT JOIN speakers sp ON tsp.speaker_id = sp.id
+                   WHERE s.slug = ? AND ts.season = ?
+                   GROUP BY t.object_id
+                   ORDER BY ts.episode ASC, t.published_at ASC
+                   LIMIT ? OFFSET ?""",
+                (series_slug, season, limit, offset),
+            ).fetchall()
+        return self.conn.execute(
+            """SELECT t.*, GROUP_CONCAT(DISTINCT sp.name) as speaker_names,
+                      ts.season, ts.episode
+               FROM talks t
+               JOIN talk_series ts ON t.slug = ts.talk_slug
+               JOIN series s ON ts.series_id = s.id
+               LEFT JOIN talk_speakers tsp ON t.object_id = tsp.talk_id
+               LEFT JOIN speakers sp ON tsp.speaker_id = sp.id
+               WHERE s.slug = ?
+               GROUP BY t.object_id
+               ORDER BY ts.season ASC, ts.episode ASC, t.published_at ASC
+               LIMIT ? OFFSET ?""",
+            (series_slug, limit, offset),
+        ).fetchall()

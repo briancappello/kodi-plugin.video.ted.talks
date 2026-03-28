@@ -295,7 +295,9 @@ def show_categories(ui):
         (30004, "search", {}),  # Search
         (30002, "speakers", {}),  # Speakers
         (30007, "topics", {}),  # Topics
-        (None, "favorites", {}),  # Favorites (no localized string yet)
+        (None, "series", {}),  # Series
+        (None, "playlists", {}),  # Playlists
+        (None, "favorites", {}),  # Favorites
     ]
     for string_id, mode, extra in items:
         title = ui.localized(string_id) if string_id else mode.title()
@@ -504,6 +506,175 @@ def action_speakers(ui, db, args):
     UI.end_directory("videos", VIDEO_SORT_METHODS, update_listing=(page > 0))
 
 
+def action_series(ui, db, args):
+    """Browse TED series → seasons → talks."""
+    series_slug = args.get("series", "")
+    season = args.get("season", "")
+
+    if not series_slug:
+        # Show all series
+        all_series = db.get_all_series(series_type="series")
+
+        if not all_series:
+            xbmcgui.Dialog().notification(
+                "TED Talks", "No series available yet", xbmcgui.NOTIFICATION_INFO, 3000
+            )
+
+        for s in all_series:
+            label = (
+                "%s (%d)" % (s["name"], s["talk_count"])
+                if s["talk_count"]
+                else s["name"]
+            )
+            li = xbmcgui.ListItem(label, offscreen=True)
+            if s["description"]:
+                li.setInfo(type="video", infoLabels={"plot": s["description"]})
+            if s["thumb_url"]:
+                li.setArt({"thumb": s["thumb_url"], "icon": s["thumb_url"]})
+            url = UI.create_action_url("series", series=s["slug"])
+            UI.add_directory_item(url, li, is_folder=True)
+
+        UI.end_directory("files", ["title"])
+        return
+
+    if not season:
+        # Check if this series has multiple seasons
+        seasons = db.get_series_seasons(series_slug)
+
+        if len(seasons) > 1:
+            # Show season list
+            for s in seasons:
+                label = "Season %d" % s["season"]
+                li = xbmcgui.ListItem(label, offscreen=True)
+                url = UI.create_action_url(
+                    "series", series=series_slug, season=str(s["season"])
+                )
+                UI.add_directory_item(url, li, is_folder=True)
+
+            xbmcplugin.setPluginCategory(__handle__, series_slug)
+            UI.end_directory("files", ["none"])
+            return
+
+        # Single season or no seasons — show talks directly
+        season_num = seasons[0]["season"] if seasons else None
+
+    else:
+        season_num = int(season)
+
+    # Show talks for this series (+ optional season)
+    page = int(args.get("page", "0"))
+    talks = db.get_series_talks(
+        series_slug, season=season_num, limit=PAGE_SIZE, offset=page * PAGE_SIZE
+    )
+
+    for talk in talks:
+        slug = talk["slug"]
+        ep = talk["episode"]
+        label_prefix = "Ep. %d: " % ep if ep else ""
+        # Override the default label with episode prefix
+        title = talk["title"] or ""
+        speakers = talk["speaker_names"] or ""
+        label = (
+            "%s%s | %s" % (label_prefix, title, speakers)
+            if speakers
+            else "%s%s" % (label_prefix, title)
+        )
+
+        li = xbmcgui.ListItem(label, offscreen=True)
+        info = {"title": title, "mediatype": "video"}
+        if talk["description"]:
+            info["plot"] = talk["description"]
+        if ep:
+            info["episode"] = ep
+        if season_num:
+            info["season"] = season_num
+        if talk["duration"]:
+            li.addStreamInfo("video", {"duration": int(talk["duration"])})
+        if talk["watched"]:
+            info["playcount"] = 1
+        li.setInfo(type="video", infoLabels=info)
+
+        thumb = talk["thumb_url"] or ""
+        if thumb:
+            li.setArt({"thumb": thumb, "icon": thumb})
+        li.setProperty("IsPlayable", "true")
+
+        url = UI.create_action_url("play", url=slug)
+        UI.add_directory_item(url, li, is_folder=False)
+
+    if len(talks) == PAGE_SIZE:
+        UI.next_page_item(
+            "series",
+            series=series_slug,
+            season=str(season_num) if season_num else "",
+            page=str(page + 1),
+        )
+
+    xbmcplugin.setPluginCategory(
+        __handle__,
+        "Season %d" % season_num if season_num else series_slug,
+    )
+    UI.end_directory("videos", ["none", "episode", "title"], update_listing=(page > 0))
+
+
+def action_playlists(ui, db, args):
+    """Browse playlists, optionally filtered by topic."""
+    playlist_slug = args.get("playlist", "")
+    topic = args.get("topic", "")
+
+    if playlist_slug:
+        # Show talks in this playlist (reuse series talk display)
+        page = int(args.get("page", "0"))
+        talks = db.get_series_talks(
+            playlist_slug, limit=PAGE_SIZE, offset=page * PAGE_SIZE
+        )
+
+        for talk in talks:
+            slug = talk["slug"]
+            url = UI.create_action_url("play", url=slug)
+            li = ui.talk_listitem(talk)
+            UI.add_directory_item(url, li, is_folder=False)
+
+        if len(talks) == PAGE_SIZE:
+            UI.next_page_item("playlists", playlist=playlist_slug, page=str(page + 1))
+
+        xbmcplugin.setPluginCategory(__handle__, playlist_slug)
+        UI.end_directory("videos", VIDEO_SORT_METHODS, update_listing=(page > 0))
+        return
+
+    if topic:
+        # Show playlists filtered by topic
+        playlists = db.get_playlists_by_topic(topic)
+        xbmcplugin.setPluginCategory(__handle__, topic)
+    else:
+        # Show topic filter + all playlists
+        # First: topic shortcuts
+        playlist_topics = db.get_playlist_topics()
+        if playlist_topics:
+            for t in playlist_topics:
+                label = "%s (%d playlists)" % (t["name"], t["playlist_count"])
+                li = xbmcgui.ListItem(label, offscreen=True)
+                li.setProperty("SpecialSort", "top")
+                url = UI.create_action_url("playlists", topic=t["name"])
+                UI.add_directory_item(url, li, is_folder=True)
+
+        playlists = db.get_all_series(series_type="playlist")
+
+    for p in playlists:
+        label = (
+            "%s (%d)" % (p["name"], p["talk_count"]) if p["talk_count"] else p["name"]
+        )
+        li = xbmcgui.ListItem(label, offscreen=True)
+        if p["description"]:
+            li.setInfo(type="video", infoLabels={"plot": p["description"]})
+        if p["thumb_url"]:
+            li.setArt({"thumb": p["thumb_url"], "icon": p["thumb_url"]})
+        url = UI.create_action_url("playlists", playlist=p["slug"])
+        UI.add_directory_item(url, li, is_folder=True)
+
+    UI.end_directory("files", ["title"])
+
+
 def action_favorites(ui, db, args):
     """List favorited talks."""
     page = int(args.get("page", "0"))
@@ -649,6 +820,10 @@ class Main:
                 action_topics(ui, db, self.args)
             elif mode == "speakers":
                 action_speakers(ui, db, self.args)
+            elif mode == "series":
+                action_series(ui, db, self.args)
+            elif mode == "playlists":
+                action_playlists(ui, db, self.args)
             elif mode == "favorites":
                 action_favorites(ui, db, self.args)
             elif mode == "play":

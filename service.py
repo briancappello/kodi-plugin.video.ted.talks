@@ -239,6 +239,119 @@ def incremental_sync(db, monitor):
     return True
 
 
+def sync_series(db):
+    """Fetch series from ted.com and populate series/talk_series tables."""
+    import re
+    import json as _json
+    import requests as req
+
+    ca_bundle = None
+    for p in ["/etc/ssl/certs/ca-certificates.crt", "/etc/pki/tls/certs/ca-bundle.crt"]:
+        if os.path.exists(p):
+            ca_bundle = p
+            break
+    verify = ca_bundle or True
+
+    xbmc.log("TED Talks: Syncing series", xbmc.LOGINFO)
+
+    try:
+        resp = req.get("https://www.ted.com/series", timeout=15, verify=verify)
+        if not resp.ok:
+            return
+    except Exception as e:
+        xbmc.log("TED Talks: Failed to fetch series page: %s" % e, xbmc.LOGWARNING)
+        return
+
+    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.+?)</script>', resp.text, re.S)
+    if not m:
+        return
+
+    data = _json.loads(m.group(1))
+    slices = data["props"]["pageProps"]["page"]["data"]["slices"]
+
+    # Parse series slugs from markdown
+    series_list = []
+    seen = set()
+    for s in slices:
+        for item in s.get("items", []):
+            for col in item.get("column", []):
+                text = col.get("text", "")
+                if "##" not in text:
+                    continue
+                title_m = re.search(r"##\s*(.+?)(?:\n|$)", text)
+                slug_m = re.search(
+                    r'\[button url="(?:/series/|https://www\.ted\.com/series/)([^"]+)"',
+                    text,
+                )
+                if not title_m or not slug_m:
+                    continue
+                title = title_m.group(1).strip()
+                slug = slug_m.group(1).rstrip("/")
+                if slug in seen:
+                    continue
+                seen.add(slug)
+                desc_m = re.search(r"##.+?\n(.+?)(?:##|\[button)", text, re.S)
+                series_list.append(
+                    {
+                        "slug": slug,
+                        "title": title,
+                        "description": desc_m.group(1).strip() if desc_m else "",
+                    }
+                )
+
+    # Fetch each series page
+    for series_info in series_list:
+        slug = series_info["slug"]
+        try:
+            resp = req.get(
+                "https://www.ted.com/series/%s" % slug, timeout=15, verify=verify
+            )
+            if not resp.ok:
+                continue
+            m = re.search(
+                r'<script id="__NEXT_DATA__"[^>]*>(.+?)</script>', resp.text, re.S
+            )
+            if not m:
+                continue
+            page_data = _json.loads(m.group(1))
+            pp = page_data["props"]["pageProps"]
+            series_data = pp.get("series", {})
+
+            images = series_data.get("primaryImageSet", [])
+            thumb = None
+            for img in images:
+                if img.get("aspectRatioName") == "1x1":
+                    thumb = img.get("url")
+                    break
+            if not thumb and images:
+                thumb = images[0].get("url")
+
+            db.upsert_series(
+                slug=slug,
+                name=series_info["title"],
+                description=series_info["description"]
+                or series_data.get("description"),
+                thumb_url=thumb,
+            )
+
+            for season in pp.get("seasons", []):
+                season_num = season.get("seasonNumber")
+                nodes = season.get("videos", {}).get("nodes", [])
+                for ep_idx, video in enumerate(nodes):
+                    talk_slug = video.get("slug", "")
+                    if talk_slug:
+                        db.link_talk_to_series(
+                            talk_slug, slug, season=season_num, episode=ep_idx + 1
+                        )
+            db.conn.commit()
+        except Exception as e:
+            xbmc.log(
+                "TED Talks: Failed to sync series %s: %s" % (slug, e), xbmc.LOGWARNING
+            )
+
+    xbmc.log("TED Talks: Synced %d series" % len(series_list), xbmc.LOGINFO)
+
+
 def sync_topics(db):
     """Fetch topics from ted.com/topics and populate the topics table."""
     import re
@@ -390,6 +503,8 @@ def run():
             if not monitor.abortRequested():
                 sync_topics(db)
             if not monitor.abortRequested():
+                sync_series(db)
+            if not monitor.abortRequested():
                 enrich_unenriched(db, monitor)
         elif db.needs_sync("last_full_sync", max_age_hours=SYNC_INTERVAL_HOURS):
             incremental_sync(db, monitor)
@@ -404,9 +519,11 @@ def run():
             if not monitor.abortRequested():
                 incremental_sync(db, monitor)
 
-            # Refresh topics periodically
+            # Refresh topics and series periodically
             if not monitor.abortRequested():
                 sync_topics(db)
+            if not monitor.abortRequested():
+                sync_series(db)
 
             # Enrich some unenriched talks each cycle
             if not monitor.abortRequested():

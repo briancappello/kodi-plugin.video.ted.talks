@@ -251,6 +251,310 @@ async def enrich_talks(db, max_talks=None, concurrency=ENRICH_CONCURRENCY):
     logger.info("Enrichment complete: %d enriched, %d errors", enriched, errors)
 
 
+async def sync_series(db, concurrency=10):
+    """Fetch all series from ted.com and their episodes."""
+    import re as _re
+
+    logger.info("Syncing series...")
+
+    async with httpx.AsyncClient(
+        timeout=20,
+        follow_redirects=True,
+        limits=httpx.Limits(max_connections=concurrency + 5),
+    ) as client:
+        # Step 1: Get series index page
+        resp = await client.get("https://www.ted.com/series")
+        resp.raise_for_status()
+        m = _re.search(
+            r'<script id="__NEXT_DATA__"[^>]*>(.+?)</script>', resp.text, _re.S
+        )
+        if not m:
+            logger.warning("No __NEXT_DATA__ on series index page")
+            return
+
+        import json as _json
+
+        data = _json.loads(m.group(1))
+        slices = data["props"]["pageProps"]["page"]["data"]["slices"]
+
+        # Parse series from markdown slices
+        series_list = []
+        for s in slices:
+            for item in s.get("items", []):
+                for col in item.get("column", []):
+                    text = col.get("text", "")
+                    if "##" not in text:
+                        continue
+                    title_m = _re.search(r"##\s*(.+?)(?:\n|$)", text)
+                    if not title_m:
+                        continue
+                    title = title_m.group(1).strip()
+                    if not title:
+                        continue
+                    slug_m = _re.search(
+                        r'\[button url="(?:/series/|https://www\.ted\.com/series/)([^"]+)"',
+                        text,
+                    )
+                    if not slug_m:
+                        continue
+                    slug = slug_m.group(1).rstrip("/")
+                    img_m = _re.search(r"!\[.*?\]\((https?://[^)]+)\)", text)
+                    desc_m = _re.search(r"##.+?\n(.+?)(?:##|\[button)", text, _re.S)
+                    series_list.append(
+                        {
+                            "slug": slug,
+                            "title": title,
+                            "description": desc_m.group(1).strip() if desc_m else "",
+                            "image": img_m.group(1) if img_m else None,
+                        }
+                    )
+
+        # Deduplicate
+        seen = set()
+        unique_series = []
+        for s in series_list:
+            if s["slug"] not in seen:
+                seen.add(s["slug"])
+                unique_series.append(s)
+
+        logger.info("Found %d series, fetching episodes...", len(unique_series))
+
+        # Step 2: Fetch each series page for seasons/episodes
+        sem = asyncio.Semaphore(concurrency)
+        completed = 0
+
+        async def _fetch_series(series_info):
+            nonlocal completed
+            async with sem:
+                slug = series_info["slug"]
+                try:
+                    resp = await client.get("https://www.ted.com/series/%s" % slug)
+                    if resp.status_code != 200:
+                        return
+                    m = _re.search(
+                        r'<script id="__NEXT_DATA__"[^>]*>(.+?)</script>',
+                        resp.text,
+                        _re.S,
+                    )
+                    if not m:
+                        return
+                    page_data = _json.loads(m.group(1))
+                    pp = page_data["props"]["pageProps"]
+                    series_data = pp.get("series", {})
+
+                    # Get thumbnail
+                    images = series_data.get("primaryImageSet", [])
+                    thumb = None
+                    for img in images:
+                        if img.get("aspectRatioName") == "1x1":
+                            thumb = img.get("url")
+                            break
+                    if not thumb and images:
+                        thumb = images[0].get("url")
+
+                    db.upsert_series(
+                        slug=slug,
+                        name=series_info["title"],
+                        description=series_info["description"]
+                        or series_data.get("description"),
+                        thumb_url=thumb or series_info.get("image"),
+                    )
+
+                    # Process seasons
+                    for season in pp.get("seasons", []):
+                        season_num = season.get("seasonNumber")
+                        nodes = season.get("videos", {}).get("nodes", [])
+                        for ep_idx, video in enumerate(nodes):
+                            talk_slug = video.get("slug", "")
+                            if talk_slug:
+                                db.link_talk_to_series(
+                                    talk_slug,
+                                    slug,
+                                    season=season_num,
+                                    episode=ep_idx + 1,
+                                )
+                    db.conn.commit()
+                except Exception as e:
+                    logger.debug("Failed to sync series %s: %s", slug, e)
+
+            completed += 1
+            print(
+                "\r  Series: %d/%d" % (completed, len(unique_series)),
+                end="",
+                flush=True,
+            )
+
+        tasks = [_fetch_series(s) for s in unique_series]
+        await asyncio.gather(*tasks)
+        print()
+
+    logger.info("Series sync complete")
+
+
+GRAPHQL_URL = "https://www.ted.com/graphql"
+PLAYLISTS_QUERY = """query playlistsGrid($topics: [String!], $curator: CuratorOptions, $first: Int, $after: String) {
+  playlists(topics: $topics, curator: $curator, first: $first, after: $after) {
+    totalCount
+    pageInfo { endCursor hasNextPage }
+    nodes {
+      id slug title description author seasonNumber
+      primaryImageSet { url aspectRatioName }
+      videos { totalCount }
+    }
+  }
+}"""
+
+
+async def sync_playlists(db, concurrency=10):
+    """Fetch all playlists from the TED GraphQL API and their talk lists."""
+    import re as _re
+    import json as _json
+
+    logger.info("Syncing playlists...")
+
+    async with httpx.AsyncClient(
+        timeout=20,
+        follow_redirects=True,
+        limits=httpx.Limits(max_connections=concurrency + 5),
+    ) as client:
+        # Step 1: Paginate through all playlists via GraphQL
+        all_playlists = []
+        cursor = None
+        page_num = 0
+
+        while True:
+            variables = {"first": 24, "after": cursor, "curator": "EDITORIAL"}
+            resp = await client.post(
+                GRAPHQL_URL,
+                json={
+                    "operationName": "playlistsGrid",
+                    "query": PLAYLISTS_QUERY,
+                    "variables": variables,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()["data"]["playlists"]
+
+            for node in data["nodes"]:
+                images = node.get("primaryImageSet", [])
+                thumb = None
+                for img in images:
+                    if img.get("aspectRatioName") == "1x1":
+                        thumb = img.get("url")
+                        break
+                if not thumb and images:
+                    thumb = images[0].get("url")
+
+                all_playlists.append(
+                    {
+                        "id": node["id"],
+                        "slug": node["slug"],
+                        "title": node["title"],
+                        "description": node.get("description", ""),
+                        "thumb_url": thumb,
+                        "talk_count": node["videos"]["totalCount"],
+                    }
+                )
+
+            page_num += 1
+            print(
+                "\r  Playlists index: %d fetched" % len(all_playlists),
+                end="",
+                flush=True,
+            )
+
+            if not data["pageInfo"]["hasNextPage"]:
+                break
+            cursor = data["pageInfo"]["endCursor"]
+
+        print()
+        logger.info("Found %d playlists, fetching details...", len(all_playlists))
+
+        # Step 2: Fetch each playlist detail page for talk list + topics
+        sem = asyncio.Semaphore(concurrency)
+        completed = 0
+        total = len(all_playlists)
+
+        async def _fetch_playlist(pl):
+            nonlocal completed
+            async with sem:
+                slug = pl["slug"]
+                pl_id = pl["id"]
+                url = "https://www.ted.com/playlists/%s/%s" % (pl_id, slug)
+                try:
+                    resp = await client.get(url)
+                    if resp.status_code != 200:
+                        # Upsert without talks
+                        db.upsert_series(
+                            slug=slug,
+                            name=pl["title"],
+                            description=pl["description"],
+                            thumb_url=pl["thumb_url"],
+                            series_type="playlist",
+                        )
+                        return
+
+                    m = _re.search(
+                        r'<script id="__NEXT_DATA__"[^>]*>(.+?)</script>',
+                        resp.text,
+                        _re.S,
+                    )
+                    if not m:
+                        return
+
+                    page_data = _json.loads(m.group(1))
+                    pp = page_data["props"]["pageProps"]
+                    playlist_data = pp.get("playlist", {})
+
+                    db.upsert_series(
+                        slug=slug,
+                        name=pl["title"],
+                        description=pl["description"]
+                        or playlist_data.get("description", ""),
+                        thumb_url=pl["thumb_url"],
+                        series_type="playlist",
+                    )
+
+                    # Link talks
+                    videos = playlist_data.get("videos", {}).get("nodes", [])
+                    for ep_idx, video in enumerate(videos):
+                        talk_slug = video.get("slug", "")
+                        if talk_slug:
+                            db.link_talk_to_series(
+                                talk_slug, slug, season=None, episode=ep_idx + 1
+                            )
+
+                    # Extract topics from talk data
+                    topic_names = set()
+                    for video in videos:
+                        for t in video.get("topics", {}).get("nodes", []):
+                            name = t.get("name", "").strip()
+                            if name:
+                                from resources.lib.model.talk_page import topic_label
+
+                                topic_names.add(topic_label(name, t.get("slug", "")))
+                    if topic_names:
+                        db.set_series_topics(slug, list(topic_names))
+
+                    db.conn.commit()
+                except Exception as e:
+                    logger.debug("Failed to sync playlist %s: %s", slug, e)
+
+            completed += 1
+            pct = completed * 100 // total
+            print(
+                "\r  Playlists: %d/%d (%d%%)" % (completed, total, pct),
+                end="",
+                flush=True,
+            )
+
+        tasks = [_fetch_playlist(pl) for pl in all_playlists]
+        await asyncio.gather(*tasks)
+        print()
+
+    logger.info("Playlist sync complete: %d playlists", len(all_playlists))
+
+
 async def async_main(args):
     db = TedDatabase(args.output)
     try:
@@ -261,8 +565,9 @@ async def async_main(args):
             max_talks=args.enrich_limit,
             concurrency=args.concurrency,
         )
-        # Re-sync topics to fix labels from enrichment
         await sync_topics(db)
+        await sync_series(db)
+        await sync_playlists(db)
     finally:
         db.close()
     logger.info("Database written to %s", args.output)
