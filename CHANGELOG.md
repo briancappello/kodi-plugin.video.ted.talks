@@ -1,3 +1,28 @@
+## [6.0.0]
+### Changed
+- Complete rewrite of the addon architecture
+- Replaced all HTML scrapers and dead RSS feeds with TED's Algolia search API
+- Local SQLite database with FTS5 full-text search as the primary data source
+- Background service (`service.py`) syncs catalog automatically every 12 hours
+- Host-side async sync tool (`sync_catalog.py`) using httpx for fast catalog builds (~3 min for 7500 talks)
+- Normalized database schema: talks, speakers, topics, series, and playlists with proper many-to-many relationships
+- Topic drill-down with intersection filtering (e.g. "Science + Brain" narrows to 224 talks)
+- 715 curated TED playlists synced via GraphQL, filterable by topic
+- 14 TED original series with season/episode organization
+- Favorites system with post-playback bookmark dialog
+- Watched state tracking and resume playback support
+- YouTube-hosted talks resolved via youtube_dl with fallback chain
+- Uses system CA bundle to work around outdated certifi in Kodi's bundled requests
+- Removed dependencies on html5lib and youtube.dl (youtube_dl used opportunistically if available)
+- Requires Kodi v21.x (Omega)
+
+### Removed
+- RSS feed support (FeedBurner feeds are dead)
+- "Other Feeds" menu item
+- HTML scraping for topics, speakers, and search
+- Dependency on script.module.html5lib
+- Dependency on script.module.youtube.dl (now optional)
+
 ## [5.2.0]
 ### Changed
 - Updated for Kodi v21 (Omega) compatibility

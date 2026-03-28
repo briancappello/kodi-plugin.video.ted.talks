@@ -1,4 +1,4 @@
 *.pyc
 __pycache__/
 *.zip
-/plugin.video.ted.talks/
+*.db

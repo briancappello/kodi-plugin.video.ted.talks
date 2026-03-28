@@ -1,0 +1,61 @@
+{
+  "results": [
+    {
+      "appliedRules": [],
+      "exhaustiveNbHits": true,
+      "exhaustiveFacetsCount": true,
+      "exhaustiveTypo": true,
+      "exhaustive": {
+        "facetsCount": true,
+        "nbHits": true,
+        "typo": true
+      },
+      "hitsPerPage": 0,
+      "processingTimeMS": 8,
+      "nbHits": 7477,
+      "page": 0,
+      "nbPages": 0,
+      "query": "",
+      "renderingContent": {
+        "facetOrdering": {
+          "facets": {
+            "order": [
+              "subtitle_languages",
+              "duration",
+              "tags"
+            ]
+          },
+          "values": {
+            "subtitle_languages": {
+              "sortRemainingBy": "count"
+            },
+            "duration": {
+              "sortRemainingBy": "count"
+            },
+            "tags": {
+              "sortRemainingBy": "count"
+            }
+          }
+        }
+      },
+      "facets": {
+        "tags": {
+          "science": 1695,
+          "technology": 1660,
+          "ted conference": 1647,
+          "ted-ed": 1361,
+          "education": 1313,
+          "animation": 1272,
+          "social change": 1070,
+          "culture": 1019,
+          "business": 894,
+          "tedx": 883
+        }
+      },
+      "facets_stats": {},
+      "hits": [],
+      "index": "newest",
+      "params": "hitsPerPage=0&page=0&query=&facets=tags&maxValuesPerFacet=10"
+    }
+  ]
+}

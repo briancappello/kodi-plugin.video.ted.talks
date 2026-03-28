@@ -1,0 +1,272 @@
+{
+  "results": [
+    {
+      "appliedRules": [],
+      "exhaustiveNbHits": true,
+      "exhaustiveFacetsCount": true,
+      "exhaustiveTypo": true,
+      "exhaustive": {
+        "facetsCount": true,
+        "nbHits": true,
+        "typo": true
+      },
+      "hitsPerPage": 5,
+      "processingTimeMS": 20,
+      "nbHits": 1146,
+      "page": 0,
+      "nbPages": 230,
+      "query": "climate",
+      "renderingContent": {
+        "facetOrdering": {
+          "facets": {
+            "order": [
+              "subtitle_languages",
+              "duration",
+              "tags"
+            ]
+          },
+          "values": {
+            "subtitle_languages": {
+              "sortRemainingBy": "count"
+            },
+            "duration": {
+              "sortRemainingBy": "count"
+            },
+            "tags": {
+              "sortRemainingBy": "count"
+            }
+          }
+        }
+      },
+      "hits": [
+        {
+          "objectID": "622188",
+          "_index": "coyote_models_acme_videos_index_1705009781900",
+          "_score": null,
+          "duration": "714.56",
+          "speakers": "James Irungu Mwangi",
+          "title": "The climate solutions creating new jobs",
+          "photos": [
+            {
+              "updated_at": "2026-02-27T17:23:00.000Z",
+              "description": "Set 1",
+              "created_at": "2026-02-27T17:23:00.000Z",
+              "id": 191336,
+              "photo_sizes": [
+                {
+                  "talkstar_photo_id": 191336,
+                  "updated_at": "2026-03-24T14:12:31.000Z",
+                  "width": 2880,
+                  "created_at": "2026-03-24T14:12:31.000Z",
+                  "id": 350021,
+                  "talkstar_aspect_ratio_id": 2,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_173509/fcc8f950-bbe7-4ce8-aaa7-99f07e2362c7/JamesIrunguMwangi_2025T-embed.jpg",
+                  "height": 1620
+                },
+                {
+                  "talkstar_photo_id": 191336,
+                  "updated_at": "2026-03-24T14:12:32.000Z",
+                  "width": 2400,
+                  "created_at": "2026-03-24T14:12:32.000Z",
+                  "id": 350022,
+                  "talkstar_aspect_ratio_id": 3,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_173509/28224bf9-dd17-406c-ba24-1256fb6a2da9/JamesIrunguMwangi_2025T-stageshot.jpg",
+                  "height": 1800
+                },
+                {
+                  "talkstar_photo_id": 191336,
+                  "updated_at": "2026-03-24T14:12:32.000Z",
+                  "width": 1350,
+                  "created_at": "2026-03-24T14:12:32.000Z",
+                  "id": 350023,
+                  "talkstar_aspect_ratio_id": 36,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_173509/6ab9ef9b-e835-4166-92b4-08a38d83cc2b/JamesIrunguMwangi_2025T-1350x675.jpg",
+                  "height": 675
+                }
+              ]
+            }
+          ],
+          "slug": "james_irungu_mwangi_the_climate_solutions_creating_new_jobs"
+        },
+        {
+          "objectID": "624491",
+          "_index": "coyote_models_acme_videos_index_1705009781900",
+          "_score": null,
+          "duration": "663.8",
+          "speakers": "Doreen Orishaba",
+          "title": "How to make transportation quieter, cleaner and cheaper",
+          "photos": [
+            {
+              "updated_at": "2026-03-10T16:22:51.000Z",
+              "description": "Set 1",
+              "created_at": "2026-03-10T16:22:51.000Z",
+              "id": 192112,
+              "photo_sizes": [
+                {
+                  "talkstar_photo_id": 192112,
+                  "updated_at": "2026-03-10T21:49:58.000Z",
+                  "width": 2880,
+                  "created_at": "2026-03-10T21:49:58.000Z",
+                  "id": 348306,
+                  "talkstar_aspect_ratio_id": 2,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_174283/2864f8c8-ba02-4ae8-abad-a55d356f4319/DoreenOrishaba_2025T-embed.jpg",
+                  "height": 1620
+                },
+                {
+                  "talkstar_photo_id": 192112,
+                  "updated_at": "2026-03-10T21:49:59.000Z",
+                  "width": 2400,
+                  "created_at": "2026-03-10T21:49:59.000Z",
+                  "id": 348307,
+                  "talkstar_aspect_ratio_id": 3,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_174283/c4d56564-fca3-4241-ab93-6598f0157706/DoreenOrishaba_2025T-stageshot.jpg",
+                  "height": 1800
+                },
+                {
+                  "talkstar_photo_id": 192112,
+                  "updated_at": "2026-03-10T21:49:59.000Z",
+                  "width": 1350,
+                  "created_at": "2026-03-10T21:49:59.000Z",
+                  "id": 348308,
+                  "talkstar_aspect_ratio_id": 36,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_174283/47eb22db-90cc-45a2-9024-0210383f59c4/DoreenOrishaba_2025T-1350x675.jpg",
+                  "height": 675
+                }
+              ]
+            }
+          ],
+          "slug": "doreen_orishaba_how_to_make_transportation_quieter_cleaner_and_cheaper"
+        },
+        {
+          "objectID": "619467",
+          "_index": "coyote_models_acme_videos_index_1705009781900",
+          "_score": null,
+          "duration": "512.8",
+          "speakers": "Elsaphan Njora",
+          "title": "Conservation: a love story",
+          "photos": [
+            {
+              "updated_at": "2026-02-09T17:30:34.000Z",
+              "description": "Set 1",
+              "created_at": "2026-02-09T17:30:34.000Z",
+              "id": 189959,
+              "photo_sizes": [
+                {
+                  "talkstar_photo_id": 189959,
+                  "updated_at": "2026-03-03T21:02:33.000Z",
+                  "width": 2880,
+                  "created_at": "2026-03-03T21:02:33.000Z",
+                  "id": 347277,
+                  "talkstar_aspect_ratio_id": 2,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_172133/1d3b0efd-5ec4-410b-9766-8f391c02b545/ElsaphanNjora_2025T-embed.jpg",
+                  "height": 1620
+                },
+                {
+                  "talkstar_photo_id": 189959,
+                  "updated_at": "2026-03-03T21:02:33.000Z",
+                  "width": 2400,
+                  "created_at": "2026-03-03T21:02:33.000Z",
+                  "id": 347278,
+                  "talkstar_aspect_ratio_id": 3,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_172133/bfcff859-cd90-488e-828f-3167884572f5/ElsaphanNjora_2025T-stageshot.jpg",
+                  "height": 1800
+                },
+                {
+                  "talkstar_photo_id": 189959,
+                  "updated_at": "2026-03-03T21:02:34.000Z",
+                  "width": 1350,
+                  "created_at": "2026-03-03T21:02:34.000Z",
+                  "id": 347279,
+                  "talkstar_aspect_ratio_id": 36,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_172133/03460d25-17a8-4de6-8788-060c844d1cbd/ElsaphanNjora_2025T-1350x675.jpg",
+                  "height": 675
+                }
+              ]
+            }
+          ],
+          "slug": "elsaphan_njora_conservation_a_love_story"
+        },
+        {
+          "objectID": "618522",
+          "_index": "coyote_models_acme_videos_index_1705009781900",
+          "_score": null,
+          "duration": "527.8",
+          "speakers": "Sandeep Roy Choudhury",
+          "title": "The controversial climate tool funding real change",
+          "photos": [
+            {
+              "updated_at": "2026-02-03T15:38:08.000Z",
+              "description": "Set 1",
+              "created_at": "2026-02-03T15:38:08.000Z",
+              "id": 189503,
+              "photo_sizes": [
+                {
+                  "talkstar_photo_id": 189503,
+                  "updated_at": "2026-02-23T14:12:11.000Z",
+                  "width": 2880,
+                  "created_at": "2026-02-23T14:12:11.000Z",
+                  "id": 345708,
+                  "talkstar_aspect_ratio_id": 2,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_171661/6d4b9a47-3ec0-4a5c-8622-6a7da248cd4d/SandeepRoyChoudhury_2025T-embed.jpg",
+                  "height": 1620
+                },
+                {
+                  "talkstar_photo_id": 189503,
+                  "updated_at": "2026-02-23T14:12:12.000Z",
+                  "width": 2400,
+                  "created_at": "2026-02-23T14:12:12.000Z",
+                  "id": 345709,
+                  "talkstar_aspect_ratio_id": 3,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_171661/893c9a99-0ad4-4bb7-b752-215944649369/SandeepRoyChoudhury_2025T-stageshot.jpg",
+                  "height": 1800
+                },
+                {
+                  "talkstar_photo_id": 189503,
+                  "updated_at": "2026-02-23T14:12:12.000Z",
+                  "width": 1350,
+                  "created_at": "2026-02-23T14:12:12.000Z",
+                  "id": 345710,
+                  "talkstar_aspect_ratio_id": 36,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_171661/286724b4-7723-47b6-bb0c-5b2b912cc0ff/SandeepRoyChoudhury_2025T-1350x675.jpg",
+                  "height": 675
+                }
+              ]
+            }
+          ],
+          "slug": "sandeep_roy_choudhury_the_controversial_climate_tool_funding_real_change"
+        },
+        {
+          "objectID": "619946",
+          "_index": "coyote_models_acme_videos_index_1705009781900",
+          "_score": null,
+          "duration": "408.033",
+          "speakers": "Bruce Hardy",
+          "title": "The biggest myths about Neanderthals",
+          "photos": [
+            {
+              "updated_at": "2026-02-12T16:35:57.000Z",
+              "description": "Set 1",
+              "created_at": "2026-02-12T16:35:57.000Z",
+              "id": 190179,
+              "photo_sizes": [
+                {
+                  "talkstar_photo_id": 190179,
+                  "updated_at": "2026-02-13T21:35:06.000Z",
+                  "width": 1920,
+                  "created_at": "2026-02-13T21:35:06.000Z",
+                  "id": 344707,
+                  "talkstar_aspect_ratio_id": 2,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_172353/2efc5ad7-cfc6-486b-9655-7912cc8fef8f/Neanderthals_textless.jpg",
+                  "height": 1080
+                }
+              ]
+            }
+          ],
+          "slug": "bruce_hardy_the_biggest_myths_about_neanderthals"
+        }
+      ],
+      "index": "newest",
+      "params": "hitsPerPage=5&page=0&query=climate"
+    }
+  ]
+}

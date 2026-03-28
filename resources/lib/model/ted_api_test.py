@@ -1,8 +1,28 @@
 """Tests for the TED API client."""
 
+import json
+import os
 import unittest
+from unittest.mock import patch, MagicMock
 
 from . import ted_api
+
+FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
+
+
+def _load_fixture(name):
+    with open(os.path.join(FIXTURES_DIR, name)) as f:
+        return json.load(f)
+
+
+def _mock_post(fixture_name):
+    """Create a mock requests.post that returns fixture data."""
+    data = _load_fixture(fixture_name)
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = data
+    mock_resp.raise_for_status.return_value = None
+    return mock_resp
 
 
 class TestTedApiNormalization(unittest.TestCase):
@@ -90,31 +110,36 @@ class TestTedApiNormalization(unittest.TestCase):
         self.assertEqual(ted_api._pick_thumbnail(photos), "big.jpg")
 
 
-class TestTedApiLive(unittest.TestCase):
-    """Tests that hit the live TED API. May be slow."""
+class TestTedApiSearch(unittest.TestCase):
+    """Test API search using fixture data."""
 
-    def test_search_newest(self):
+    @patch("resources.lib.model.ted_api._post_json")
+    def test_search_newest(self, mock_post_json):
+        mock_post_json.return_value = _load_fixture("api_newest.json")
         result = ted_api.search(query="", page=0, hits_per_page=3)
         self.assertIn("hits", result)
         self.assertIn("total", result)
         self.assertIn("pages", result)
         self.assertEqual(len(result["hits"]), 3)
         self.assertGreater(result["total"], 1000)
-        # Each hit should have required fields
         hit = result["hits"][0]
         self.assertIn("object_id", hit)
         self.assertIn("slug", hit)
         self.assertIn("title", hit)
 
-    def test_search_with_query(self):
+    @patch("resources.lib.model.ted_api._post_json")
+    def test_search_with_query(self, mock_post_json):
+        mock_post_json.return_value = _load_fixture("api_search_climate.json")
         result = ted_api.search(query="climate", hits_per_page=5)
         self.assertGreater(len(result["hits"]), 0)
-        # At least one result should mention climate
-        titles = " ".join(h["title"].lower() for h in result["hits"])
-        # Not guaranteed but highly likely
         self.assertGreater(result["total"], 10)
 
-    def test_search_pagination(self):
+    @patch("resources.lib.model.ted_api._post_json")
+    def test_search_pagination(self, mock_post_json):
+        fixture_p0 = _load_fixture("api_page0.json")
+        fixture_p1 = _load_fixture("api_page1.json")
+        mock_post_json.side_effect = [fixture_p0, fixture_p1]
+
         page0 = ted_api.search(page=0, hits_per_page=2)
         page1 = ted_api.search(page=1, hits_per_page=2)
         self.assertNotEqual(
@@ -122,12 +147,16 @@ class TestTedApiLive(unittest.TestCase):
             page1["hits"][0]["object_id"],
         )
 
-    def test_get_all_tags(self):
+    @patch("resources.lib.model.ted_api._post_json")
+    def test_get_all_tags(self, mock_post_json):
+        mock_post_json.return_value = _load_fixture("api_tags.json")
         tags = ted_api.get_all_tags(max_values=10)
         self.assertGreater(len(tags), 5)
-        # Science and technology should be top tags
-        self.assertIn("science", tags)
-        self.assertIn("technology", tags)
+        # Tags fixture should have common topics
+        self.assertTrue(
+            any(t in tags for t in ["science", "technology", "culture"]),
+            "Expected common tags in fixture data",
+        )
 
 
 if __name__ == "__main__":

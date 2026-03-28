@@ -1,0 +1,145 @@
+{
+  "results": [
+    {
+      "appliedRules": [],
+      "exhaustiveNbHits": true,
+      "exhaustiveFacetsCount": true,
+      "exhaustiveTypo": true,
+      "exhaustive": {
+        "facetsCount": true,
+        "nbHits": true,
+        "typo": true
+      },
+      "hitsPerPage": 2,
+      "processingTimeMS": 16,
+      "nbHits": 7477,
+      "page": 0,
+      "nbPages": 3739,
+      "query": "",
+      "renderingContent": {
+        "facetOrdering": {
+          "facets": {
+            "order": [
+              "subtitle_languages",
+              "duration",
+              "tags"
+            ]
+          },
+          "values": {
+            "subtitle_languages": {
+              "sortRemainingBy": "count"
+            },
+            "duration": {
+              "sortRemainingBy": "count"
+            },
+            "tags": {
+              "sortRemainingBy": "count"
+            }
+          }
+        }
+      },
+      "hits": [
+        {
+          "objectID": "622188",
+          "_index": "coyote_models_acme_videos_index_1705009781900",
+          "_score": null,
+          "duration": "714.56",
+          "speakers": "James Irungu Mwangi",
+          "title": "The climate solutions creating new jobs",
+          "photos": [
+            {
+              "updated_at": "2026-02-27T17:23:00.000Z",
+              "description": "Set 1",
+              "created_at": "2026-02-27T17:23:00.000Z",
+              "id": 191336,
+              "photo_sizes": [
+                {
+                  "talkstar_photo_id": 191336,
+                  "updated_at": "2026-03-24T14:12:31.000Z",
+                  "width": 2880,
+                  "created_at": "2026-03-24T14:12:31.000Z",
+                  "id": 350021,
+                  "talkstar_aspect_ratio_id": 2,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_173509/fcc8f950-bbe7-4ce8-aaa7-99f07e2362c7/JamesIrunguMwangi_2025T-embed.jpg",
+                  "height": 1620
+                },
+                {
+                  "talkstar_photo_id": 191336,
+                  "updated_at": "2026-03-24T14:12:32.000Z",
+                  "width": 2400,
+                  "created_at": "2026-03-24T14:12:32.000Z",
+                  "id": 350022,
+                  "talkstar_aspect_ratio_id": 3,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_173509/28224bf9-dd17-406c-ba24-1256fb6a2da9/JamesIrunguMwangi_2025T-stageshot.jpg",
+                  "height": 1800
+                },
+                {
+                  "talkstar_photo_id": 191336,
+                  "updated_at": "2026-03-24T14:12:32.000Z",
+                  "width": 1350,
+                  "created_at": "2026-03-24T14:12:32.000Z",
+                  "id": 350023,
+                  "talkstar_aspect_ratio_id": 36,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_173509/6ab9ef9b-e835-4166-92b4-08a38d83cc2b/JamesIrunguMwangi_2025T-1350x675.jpg",
+                  "height": 675
+                }
+              ]
+            }
+          ],
+          "slug": "james_irungu_mwangi_the_climate_solutions_creating_new_jobs"
+        },
+        {
+          "objectID": "624180",
+          "_index": "coyote_models_acme_videos_index_1705009781900",
+          "_score": null,
+          "duration": "2769.0",
+          "speakers": " TED Idea Search",
+          "title": "How to make your idea impossible to ignore ",
+          "photos": [
+            {
+              "updated_at": "2026-03-09T18:53:18.000Z",
+              "description": "Set 1",
+              "created_at": "2026-03-09T18:53:18.000Z",
+              "id": 192027,
+              "photo_sizes": [
+                {
+                  "talkstar_photo_id": 192027,
+                  "updated_at": "2026-03-27T13:13:45.000Z",
+                  "width": 1920,
+                  "created_at": "2026-03-27T13:13:45.000Z",
+                  "id": 350692,
+                  "talkstar_aspect_ratio_id": 2,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_174198/ae144960-5b43-4c15-8d3f-9f35be7c8814/TED_Idea_Search_Thumb_1920x1080_Chicago_v1_B.jpg",
+                  "height": 1080
+                },
+                {
+                  "talkstar_photo_id": 192027,
+                  "updated_at": "2026-03-27T13:13:45.000Z",
+                  "width": 2400,
+                  "created_at": "2026-03-27T13:13:45.000Z",
+                  "id": 350693,
+                  "talkstar_aspect_ratio_id": 3,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_174198/9117c9fb-fb50-4157-b507-a3e6e92b6636/TED_Idea_Search_Thumb_2400x1800_Chicago_v1_B.jpg",
+                  "height": 1800
+                },
+                {
+                  "talkstar_photo_id": 192027,
+                  "updated_at": "2026-03-27T13:13:45.000Z",
+                  "width": 1350,
+                  "created_at": "2026-03-27T13:13:45.000Z",
+                  "id": 350694,
+                  "talkstar_aspect_ratio_id": 36,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_174198/c951d0f6-f6a8-4e79-87ad-7ead2a983401/TED_Idea_Search_Thumb_1350x675_Chicago_v1_B.jpg",
+                  "height": 675
+                }
+              ]
+            }
+          ],
+          "slug": "ted_idea_search_how_to_make_your_idea_impossible_to_ignore"
+        }
+      ],
+      "index": "newest",
+      "params": "hitsPerPage=2&page=0&query="
+    }
+  ]
+}

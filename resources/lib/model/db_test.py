@@ -192,8 +192,10 @@ class TestTedDatabase(unittest.TestCase):
 
     def test_get_talks_by_topic(self):
         self.db.upsert_talks([self._make_talk()])
-        self.db.enrich_talk("test_talk", {"topics": ["science"]})
-        talks = self.db.get_talks_by_topic("science")
+        self.db.enrich_talk(
+            "test_talk", {"topics": [{"name": "Science", "slug": "science"}]}
+        )
+        talks = self.db.get_talks_by_topics(["Science"])
         self.assertEqual(len(talks), 1)
         self.assertEqual(talks[0]["title"], "Test Talk")
 

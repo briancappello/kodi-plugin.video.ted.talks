@@ -1,6 +1,7 @@
 """Tests for the talk page extractor."""
 
 import json
+import os
 import unittest
 
 from . import talk_page
@@ -74,7 +75,10 @@ class TestExtractEnrichment(unittest.TestCase):
         self.assertEqual(result["published_at"], "2025-03-15T12:00:00Z")
         self.assertEqual(result["recorded_at"], "2025-03-10")
         self.assertEqual(result["view_count"], 50000)
-        self.assertEqual(result["topics"], ["science", "technology"])
+        self.assertEqual(
+            result["topics"],
+            [{"name": "Science", "slug": ""}, {"name": "Technology", "slug": ""}],
+        )
         self.assertEqual(len(result["speakers"]), 1)
         self.assertEqual(result["speakers"][0]["name"], "Jane Doe")
         self.assertEqual(result["speakers"][0]["slug"], "jane_doe")
@@ -258,26 +262,24 @@ class TestResolveSubtitles(unittest.TestCase):
         self.assertEqual(result, "https://example.com/subs.vtt")
 
 
-class TestTalkPageLive(unittest.TestCase):
-    """Tests that hit the live TED website."""
+class TestTalkPageFixture(unittest.TestCase):
+    """Tests using a captured talk page HTML fixture."""
 
-    def test_extract_enrichment_live(self):
-        import requests
+    @classmethod
+    def setUpClass(cls):
+        fixtures_dir = os.path.join(os.path.dirname(__file__), "fixtures")
+        with open(os.path.join(fixtures_dir, "talk_page.html")) as f:
+            cls.html = f.read()
 
-        url = "https://www.ted.com/talks/hamish_mckenzie_this_is_what_the_future_of_media_looks_like"
-        resp = requests.get(url, timeout=15)
-        result = talk_page.extract_enrichment(resp.text)
+    def test_extract_enrichment_fixture(self):
+        result = talk_page.extract_enrichment(self.html)
         self.assertIn("description", result)
         self.assertGreater(len(result["description"]), 10)
         self.assertGreater(len(result["topics"]), 0)
         self.assertGreater(len(result["speakers"]), 0)
 
-    def test_extract_stream_info_live(self):
-        import requests
-
-        url = "https://www.ted.com/talks/hamish_mckenzie_this_is_what_the_future_of_media_looks_like"
-        resp = requests.get(url, timeout=15)
-        result = talk_page.extract_stream_info(resp.text, subtitle_languages=["en"])
+    def test_extract_stream_info_fixture(self):
+        result = talk_page.extract_stream_info(self.html, subtitle_languages=["en"])
         self.assertIsNotNone(result["stream"])
         self.assertGreater(len(result["title"]), 0)
         self.assertGreater(result["duration"], 0)

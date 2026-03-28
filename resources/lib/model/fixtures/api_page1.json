@@ -1,0 +1,145 @@
+{
+  "results": [
+    {
+      "appliedRules": [],
+      "exhaustiveNbHits": true,
+      "exhaustiveFacetsCount": true,
+      "exhaustiveTypo": true,
+      "exhaustive": {
+        "facetsCount": true,
+        "nbHits": true,
+        "typo": true
+      },
+      "hitsPerPage": 2,
+      "processingTimeMS": 10,
+      "nbHits": 7477,
+      "page": 1,
+      "nbPages": 3739,
+      "query": "",
+      "renderingContent": {
+        "facetOrdering": {
+          "facets": {
+            "order": [
+              "subtitle_languages",
+              "duration",
+              "tags"
+            ]
+          },
+          "values": {
+            "subtitle_languages": {
+              "sortRemainingBy": "count"
+            },
+            "duration": {
+              "sortRemainingBy": "count"
+            },
+            "tags": {
+              "sortRemainingBy": "count"
+            }
+          }
+        }
+      },
+      "hits": [
+        {
+          "objectID": "627104",
+          "_index": "coyote_models_acme_videos_index_1705009781900",
+          "_score": null,
+          "duration": "801.334",
+          "speakers": "Virginia Santy",
+          "title": "Why the world is still not built for women",
+          "photos": [
+            {
+              "updated_at": "2026-03-25T16:06:15.000Z",
+              "description": "Set 1",
+              "created_at": "2026-03-25T16:06:15.000Z",
+              "id": 193170,
+              "photo_sizes": [
+                {
+                  "talkstar_photo_id": 193170,
+                  "updated_at": "2026-03-25T16:17:37.000Z",
+                  "width": 2880,
+                  "created_at": "2026-03-25T16:17:37.000Z",
+                  "id": 350482,
+                  "talkstar_aspect_ratio_id": 2,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_175334/fa258280-930a-4630-a631-077da132296f/VirginiaSanty_2025X-embed.jpg",
+                  "height": 1620
+                },
+                {
+                  "talkstar_photo_id": 193170,
+                  "updated_at": "2026-03-25T16:17:38.000Z",
+                  "width": 2400,
+                  "created_at": "2026-03-25T16:17:38.000Z",
+                  "id": 350483,
+                  "talkstar_aspect_ratio_id": 3,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_175334/8a6efb65-4e7c-4dc8-9d88-65875e94b25e/VirginiaSanty_2025X-stageshot.jpg",
+                  "height": 1800
+                },
+                {
+                  "talkstar_photo_id": 193170,
+                  "updated_at": "2026-03-25T16:17:38.000Z",
+                  "width": 1350,
+                  "created_at": "2026-03-25T16:17:38.000Z",
+                  "id": 350484,
+                  "talkstar_aspect_ratio_id": 36,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_175334/8feea6c7-2b88-4ed9-8439-34893e52df4b/VirginiaSanty_2025X-1350x675.jpg",
+                  "height": 675
+                }
+              ]
+            }
+          ],
+          "slug": "virginia_santy_why_the_world_is_still_not_built_for_women"
+        },
+        {
+          "objectID": "624178",
+          "_index": "coyote_models_acme_videos_index_1705009781900",
+          "_score": null,
+          "duration": "0.0",
+          "speakers": " TED Idea Search",
+          "title": "What makes an idea stick?",
+          "photos": [
+            {
+              "updated_at": "2026-03-09T18:52:13.000Z",
+              "description": "Set 1",
+              "created_at": "2026-03-09T18:52:13.000Z",
+              "id": 192026,
+              "photo_sizes": [
+                {
+                  "talkstar_photo_id": 192026,
+                  "updated_at": "2026-03-25T21:47:15.000Z",
+                  "width": 1920,
+                  "created_at": "2026-03-25T21:47:15.000Z",
+                  "id": 350513,
+                  "talkstar_aspect_ratio_id": 2,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_174197/072344af-49df-42ab-9bf9-abecca35627d/TED_Idea_Search_Thumb_1920x1080_Singapore_v1.jpg",
+                  "height": 1080
+                },
+                {
+                  "talkstar_photo_id": 192026,
+                  "updated_at": "2026-03-25T21:47:16.000Z",
+                  "width": 2400,
+                  "created_at": "2026-03-25T21:47:16.000Z",
+                  "id": 350514,
+                  "talkstar_aspect_ratio_id": 3,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_174197/5ae71524-3abc-4444-a32a-9adbd282162d/TED_Idea_Search_Thumb_2400x1800_Singapore_v1.jpg",
+                  "height": 1800
+                },
+                {
+                  "talkstar_photo_id": 192026,
+                  "updated_at": "2026-03-25T21:47:16.000Z",
+                  "width": 1350,
+                  "created_at": "2026-03-25T21:47:16.000Z",
+                  "id": 350515,
+                  "talkstar_aspect_ratio_id": 36,
+                  "url": "https://talkstar-assets.s3.amazonaws.com/production/talks/talk_174197/1528e19d-196e-410a-b4b3-1d9ed2227a65/TED_Idea_Search_Thumb_1350x675_Singapore_v1.jpg",
+                  "height": 675
+                }
+              ]
+            }
+          ],
+          "slug": "ted_idea_search_what_makes_an_idea_stick"
+        }
+      ],
+      "index": "newest",
+      "params": "hitsPerPage=2&page=1&query="
+    }
+  ]
+}
